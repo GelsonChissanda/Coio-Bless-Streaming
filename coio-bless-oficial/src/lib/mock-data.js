@@ -29,6 +29,16 @@ export const albums = [
     description: "Um EP mais introspectivo, gravado durante a madrugada.",
     totalPlays: 41000,
   },
+  {
+    id: "a3",
+    slug: "luz-no-fim",
+    title: "Luz no Fim",
+    type: "single",
+    coverUrl: "https://picsum.photos/seed/single1/500/500",
+    releaseYear: 2025,
+    description: "Single lançado para celebrar o aniversário de carreira.",
+    totalPlays: 18500,
+  },
 ];
 
 export const tracks = [
@@ -83,4 +93,8 @@ export function getTracksByAlbum(albumId) {
 
 export function getTrackBySlug(slug) {
   return tracks.find((t) => t.slug === slug);
+}
+
+export function getLooseTracks() {
+  return tracks.filter((t) => t.albumId === null);
 }
