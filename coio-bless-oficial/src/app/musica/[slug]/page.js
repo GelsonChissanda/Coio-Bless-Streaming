@@ -1,17 +1,19 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
-import { tracks, getTrackBySlug, getLyricsByTrackId } from "@/lib/mock-data";
+import { getAllMusicas, getMusicaBySlug } from "@/lib/queries/musicas";
+import { getLetrasByMusicaId } from "@/lib/queries/letras";
 import { TrackPlayer } from "@/components/player/track-player";
 import { LyricsView } from "@/components/player/lyrics-view";
 import { TrackRow } from "@/components/shared/track-row";
 
-export function generateStaticParams() {
-  return tracks.map((track) => ({ slug: track.slug }));
-}
+// Não usamos mais generateStaticParams com dados fixos do mock —
+// como o conteúdo agora vem do banco e muda quando você cadastra
+// músicas novas no admin, deixamos o Next.js renderizar essa rota
+// dinamicamente (ele busca os dados a cada acesso).
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const track = getTrackBySlug(slug);
+  const track = await getMusicaBySlug(slug);
 
   if (!track) return { title: "Música não encontrada" };
 
@@ -20,24 +22,28 @@ export async function generateMetadata({ params }) {
     description: `Ouça e baixe "${track.title}" de Coio Bless.`,
     openGraph: {
       title: track.title,
-      images: [track.coverUrl],
+      images: track.coverUrl ? [track.coverUrl] : [],
     },
   };
 }
 
 export default async function TrackPage({ params }) {
   const { slug } = await params;
-  const track = getTrackBySlug(slug);
+  const track = await getMusicaBySlug(slug);
 
   if (!track) notFound();
 
-  const lyricsLines = getLyricsByTrackId(track.id);
-  const relatedTracks = tracks.filter((t) => t.id !== track.id).slice(0, 4);
+  const [allTracks, lyricsLines] = await Promise.all([
+    getAllMusicas(),
+    getLetrasByMusicaId(track.id),
+  ]);
+
+  const relatedTracks = allTracks.filter((t) => t.id !== track.id).slice(0, 4);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="grid gap-8 md:grid-cols-2">
-        <TrackPlayer track={track} queue={tracks} />
+        <TrackPlayer track={track} queue={allTracks} />
         <LyricsView lines={lyricsLines} />
       </div>
 
@@ -54,4 +60,3 @@ export default async function TrackPage({ params }) {
     </div>
   );
 }
-
