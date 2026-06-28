@@ -25,6 +25,18 @@ export async function getAlbunsParaSelect() {
   return data ?? [];
 }
 
+export async function getMusicaPorId(id) {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase.from("musicas").select("*").eq("id", id).single();
+
+  if (error) {
+    console.error("Erro ao buscar música:", error.message);
+    return null;
+  }
+
+  return data;
+}
+
 function gerarSlug(texto) {
   return texto
     .toLowerCase()
@@ -35,7 +47,6 @@ function gerarSlug(texto) {
 }
 
 function tempoParaSegundos(texto) {
-  // aceita formato "3:45" e converte pra 225 segundos
   const [min, seg] = texto.split(":").map(Number);
   return (min || 0) * 60 + (seg || 0);
 }
@@ -54,14 +65,12 @@ export async function criarMusica(formData) {
   }
 
   try {
-    // Upload do áudio
     const audioBuffer = Buffer.from(await audioFile.arrayBuffer());
     const audioResult = await uploadBuffer(audioBuffer, {
-      resource_type: "video", // Cloudinary trata áudio dentro do tipo "video"
+      resource_type: "video",
       folder: "coio-bless/musicas",
     });
 
-    // Upload da capa (se enviada)
     let capaUrl = "";
     if (capaFile && capaFile.size > 0) {
       const capaBuffer = Buffer.from(await capaFile.arrayBuffer());
@@ -92,4 +101,64 @@ export async function criarMusica(formData) {
     console.error("Erro no upload:", err);
     return { error: "Falha ao enviar arquivo para o Cloudinary." };
   }
+}
+
+export async function atualizarMusica(id, formData) {
+  const supabase = createSupabaseAdminClient();
+
+  const titulo = formData.get("titulo");
+  const albumId = formData.get("album_id") || null;
+  const duracaoTexto = formData.get("duracao");
+  const audioFile = formData.get("audio_file");
+  const capaFile = formData.get("capa_file");
+
+  const updateData = {
+    titulo,
+    album_id: albumId,
+    numero_faixa: Number(formData.get("numero_faixa")) || null,
+    duracao_segundos: duracaoTexto ? tempoParaSegundos(duracaoTexto) : null,
+    data_lancamento: formData.get("data_lancamento") || null,
+  };
+
+  try {
+    if (audioFile && audioFile.size > 0) {
+      const audioBuffer = Buffer.from(await audioFile.arrayBuffer());
+      const audioResult = await uploadBuffer(audioBuffer, {
+        resource_type: "video",
+        folder: "coio-bless/musicas",
+      });
+      updateData.audio_url = audioResult.secure_url;
+    }
+
+    if (capaFile && capaFile.size > 0) {
+      const capaBuffer = Buffer.from(await capaFile.arrayBuffer());
+      const capaResult = await uploadBuffer(capaBuffer, {
+        resource_type: "image",
+        folder: "coio-bless/capas",
+      });
+      updateData.capa_url = capaResult.secure_url;
+    }
+
+    const { error } = await supabase.from("musicas").update(updateData).eq("id", id);
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/admin/musicas");
+    revalidatePath("/");
+    return { success: true };
+  } catch (err) {
+    console.error("Erro no upload:", err);
+    return { error: "Falha ao enviar arquivo para o Cloudinary." };
+  }
+}
+
+export async function excluirMusica(id) {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase.from("musicas").delete().eq("id", id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/musicas");
+  revalidatePath("/");
+  return { success: true };
 }

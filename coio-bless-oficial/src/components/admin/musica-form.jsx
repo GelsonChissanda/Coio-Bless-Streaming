@@ -1,10 +1,20 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { criarMusica } from "@/app/admin/(protected)/musicas/actions";
+import { useRouter } from "next/navigation";
+import { criarMusica, atualizarMusica } from "@/app/admin/(protected)/musicas/actions";
 import { Button } from "@/components/ui/button";
 
-export function MusicaForm({ albuns }) {
+function segundosParaTempo(segundos) {
+  if (!segundos) return "";
+  const minutos = Math.floor(segundos / 60);
+  const segs = segundos % 60;
+  return `${minutos}:${segs.toString().padStart(2, "0")}`;
+}
+
+export function MusicaForm({ musica, albuns }) {
+  const router = useRouter();
+  const isEditing = Boolean(musica);
   const formRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -13,16 +23,24 @@ export function MusicaForm({ albuns }) {
     setIsSubmitting(true);
     setFeedback(null);
 
-    const result = await criarMusica(formData);
+    const result = isEditing
+      ? await atualizarMusica(musica.id, formData)
+      : await criarMusica(formData);
 
     if (result?.error) {
       setFeedback({ type: "error", message: result.error });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (isEditing) {
+      router.push("/admin/musicas");
+      router.refresh();
     } else {
       setFeedback({ type: "success", message: "Música enviada com sucesso!" });
       formRef.current?.reset();
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   }
 
   return (
@@ -35,6 +53,7 @@ export function MusicaForm({ albuns }) {
           id="titulo"
           name="titulo"
           required
+          defaultValue={musica?.titulo}
           className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
@@ -46,7 +65,7 @@ export function MusicaForm({ albuns }) {
         <select
           id="album_id"
           name="album_id"
-          defaultValue=""
+          defaultValue={musica?.album_id ?? ""}
           className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">— Faixa solta —</option>
@@ -68,6 +87,7 @@ export function MusicaForm({ albuns }) {
             name="numero_faixa"
             type="number"
             min="1"
+            defaultValue={musica?.numero_faixa ?? ""}
             className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -79,6 +99,7 @@ export function MusicaForm({ albuns }) {
             id="duracao"
             name="duracao"
             placeholder="3:45"
+            defaultValue={segundosParaTempo(musica?.duracao_segundos)}
             className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -92,13 +113,19 @@ export function MusicaForm({ albuns }) {
           id="data_lancamento"
           name="data_lancamento"
           type="date"
+          defaultValue={musica?.data_lancamento ?? ""}
           className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
 
+      {isEditing && musica?.capa_url && (
+        <p className="text-xs text-muted-foreground">
+          Capa atual: <a href={musica.capa_url} target="_blank" className="underline">ver imagem</a> — envie um novo arquivo abaixo só se quiser trocar.
+        </p>
+      )}
       <div>
         <label htmlFor="capa_file" className="mb-1 block text-sm font-medium">
-          Capa da música (imagem)
+          {isEditing ? "Nova capa (opcional)" : "Capa da música (imagem)"}
         </label>
         <input
           id="capa_file"
@@ -109,16 +136,21 @@ export function MusicaForm({ albuns }) {
         />
       </div>
 
+      {isEditing && musica?.audio_url && (
+        <p className="text-xs text-muted-foreground">
+          Áudio atual: <audio controls src={musica.audio_url} className="mt-1 h-8 w-full" /> — envie um novo arquivo abaixo só se quiser trocar.
+        </p>
+      )}
       <div>
         <label htmlFor="audio_file" className="mb-1 block text-sm font-medium">
-          Arquivo de áudio (mp3, wav)
+          {isEditing ? "Novo áudio (opcional)" : "Arquivo de áudio (mp3, wav)"}
         </label>
         <input
           id="audio_file"
           name="audio_file"
           type="file"
           accept="audio/*"
-          required
+          required={!isEditing}
           className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1 file:text-sm"
         />
       </div>
@@ -130,7 +162,7 @@ export function MusicaForm({ albuns }) {
       )}
 
       <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Enviando... (pode levar alguns segundos)" : "Enviar Música"}
+        {isSubmitting ? "Enviando..." : isEditing ? "Salvar Alterações" : "Enviar Música"}
       </Button>
     </form>
   );

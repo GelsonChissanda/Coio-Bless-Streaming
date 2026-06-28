@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { getMusicasAdmin, getAlbunsParaSelect } from "./actions";
 import { MusicaForm } from "@/components/admin/musica-form";
+import { MusicaActions } from "@/components/admin/musica-actions";
 
 export const metadata = {
   title: "Músicas",
@@ -25,7 +26,6 @@ export default async function AdminMusicasPage() {
       <h1 className="mb-6 text-2xl font-bold">Músicas</h1>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-        {/* Lista */}
         <div className="flex flex-col gap-2">
           {musicas.length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhuma música cadastrada ainda.</p>
@@ -53,15 +53,15 @@ export default async function AdminMusicasPage() {
                 </p>
               </div>
               {musica.audio_url && (
-                <audio controls className="h-8 w-48">
+                <audio controls className="h-8 w-40">
                   <source src={musica.audio_url} />
                 </audio>
               )}
+              <MusicaActions musicaId={musica.id} />
             </div>
           ))}
         </div>
 
-        {/* Formulário */}
         <div>
           <h2 className="mb-3 text-lg font-semibold">Nova Música</h2>
           <MusicaForm albuns={albuns} />
