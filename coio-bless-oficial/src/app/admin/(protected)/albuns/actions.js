@@ -1,44 +1,96 @@
-"use client";
+"use server";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { excluirAlbum } from "@/app/admin/(protected)/albuns/actions";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { revalidatePath } from "next/cache";
 
-export function AlbumActions({ albumId }) {
-  const router = useRouter();
-  const [isDeleting, setIsDeleting] = useState(false);
+export async function getAlbunsAdmin() {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("albuns")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-  async function handleDelete() {
-    const confirmado = window.confirm(
-      "Tem certeza que quer excluir este álbum? As músicas dele ficarão como faixas soltas."
-    );
-    if (!confirmado) return;
-
-    setIsDeleting(true);
-    const result = await excluirAlbum(albumId);
-    setIsDeleting(false);
-
-    if (result?.error) {
-      alert("Erro ao excluir: " + result.error);
-      return;
-    }
-
-    router.refresh();
+  if (error) {
+    console.error("Erro ao buscar álbuns:", error.message);
+    return [];
   }
 
-  return (
-    <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" asChild>
-        <Link href={`/admin/albuns/${albumId}`}>
-          <Pencil className="h-4 w-4" />
-        </Link>
-      </Button>
-      <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting}>
-        <Trash2 className="h-4 w-4 text-destructive" />
-      </Button>
-    </div>
-  );
+  return data;
+}
+
+export async function getAlbumPorId(id) {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase.from("albuns").select("*").eq("id", id).single();
+
+  if (error) {
+    console.error("Erro ao buscar álbum:", error.message);
+    return null;
+  }
+
+  return data;
+}
+
+function gerarSlug(texto) {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+export async function criarAlbum(formData) {
+  const supabase = createSupabaseAdminClient();
+
+  const titulo = formData.get("titulo");
+  const slug = gerarSlug(titulo);
+
+  const { error } = await supabase.from("albuns").insert({
+    titulo,
+    slug,
+    tipo: formData.get("tipo"),
+    ano_lancamento: Number(formData.get("ano_lancamento")) || null,
+    descricao: formData.get("descricao"),
+    capa_url: formData.get("capa_url"),
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath("/admin/albuns");
+  revalidatePath("/discografia");
+  return { success: true };
+}
+
+export async function atualizarAlbum(id, formData) {
+  const supabase = createSupabaseAdminClient();
+
+  const { error } = await supabase
+    .from("albuns")
+    .update({
+      titulo: formData.get("titulo"),
+      tipo: formData.get("tipo"),
+      ano_lancamento: Number(formData.get("ano_lancamento")) || null,
+      descricao: formData.get("descricao"),
+      capa_url: formData.get("capa_url"),
+    })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/albuns");
+  revalidatePath("/discografia");
+  return { success: true };
+}
+
+export async function excluirAlbum(id) {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase.from("albuns").delete().eq("id", id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/albuns");
+  revalidatePath("/discografia");
+  return { success: true };
 }
