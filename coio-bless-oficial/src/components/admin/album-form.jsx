@@ -1,10 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { criarAlbum } from "@/app/admin/(protected)/albuns/actions";
+import { useRouter } from "next/navigation";
+import { criarAlbum, atualizarAlbum } from "@/app/admin/(protected)/albuns/actions";
 import { Button } from "@/components/ui/button";
 
-export function AlbumForm() {
+export function AlbumForm({ album }) {
+  const router = useRouter();
+  const isEditing = Boolean(album);
   const formRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -13,16 +16,24 @@ export function AlbumForm() {
     setIsSubmitting(true);
     setFeedback(null);
 
-    const result = await criarAlbum(formData);
+    const result = isEditing
+      ? await atualizarAlbum(album.id, formData)
+      : await criarAlbum(formData);
 
     if (result?.error) {
       setFeedback({ type: "error", message: result.error });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (isEditing) {
+      router.push("/admin/albuns");
+      router.refresh();
     } else {
       setFeedback({ type: "success", message: "Álbum criado com sucesso!" });
       formRef.current?.reset();
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   }
 
   return (
@@ -35,6 +46,7 @@ export function AlbumForm() {
           id="titulo"
           name="titulo"
           required
+          defaultValue={album?.titulo}
           className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
@@ -47,7 +59,7 @@ export function AlbumForm() {
           id="tipo"
           name="tipo"
           required
-          defaultValue="album"
+          defaultValue={album?.tipo ?? "album"}
           className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="album">Álbum</option>
@@ -66,6 +78,7 @@ export function AlbumForm() {
           type="number"
           min="1900"
           max="2100"
+          defaultValue={album?.ano_lancamento ?? ""}
           className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
@@ -79,11 +92,9 @@ export function AlbumForm() {
           name="capa_url"
           type="url"
           placeholder="https://..."
+          defaultValue={album?.capa_url ?? ""}
           className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
-        <p className="mt-1 text-xs text-muted-foreground">
-          Por enquanto cole uma URL de imagem. Upload direto vem na próxima fase (Cloudinary).
-        </p>
       </div>
 
       <div>
@@ -94,6 +105,7 @@ export function AlbumForm() {
           id="descricao"
           name="descricao"
           rows={3}
+          defaultValue={album?.descricao ?? ""}
           className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
@@ -105,7 +117,7 @@ export function AlbumForm() {
       )}
 
       <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Salvando..." : "Criar Álbum"}
+        {isSubmitting ? "Salvando..." : isEditing ? "Salvar Alterações" : "Criar Álbum"}
       </Button>
     </form>
   );
