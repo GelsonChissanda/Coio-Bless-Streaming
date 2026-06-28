@@ -44,3 +44,29 @@ export async function getMusicaBySlug(slug) {
 
   return mapMusica(data);
 }
+
+export async function getMusicasByAlbumId(albumId) {
+  const { data, error } = await supabase
+    .from("musicas")
+    .select("*")
+    .eq("album_id", albumId)
+    .order("numero_faixa");
+
+  if (error) {
+    console.error("Erro ao buscar músicas do álbum:", error.message);
+    return [];
+  }
+
+  return data.map(mapMusica);
+}
+
+export async function getMusicasSoltas() {
+  const { data, error } = await supabase
+    .from("musicas")
+    .select("*")
+    .is("album_id", null);
+
+  if (error) return [];
+
+  return data.map(mapMusica);
+}

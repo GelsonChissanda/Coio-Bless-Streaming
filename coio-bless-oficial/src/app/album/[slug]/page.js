@@ -2,7 +2,10 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { TrackRow } from "@/components/shared/track-row";
-import { getAlbumBySlug, getTracksByAlbum, albums } from "@/lib/mock-data";
+import { getAlbumBySlug } from "@/lib/queries/albuns";
+import { getMusicasByAlbumId } from "@/lib/queries/musicas";
+
+export const dynamic = "force-dynamic";
 
 const typeLabels = {
   album: "Álbum",
@@ -10,15 +13,9 @@ const typeLabels = {
   single: "Single",
 };
 
-// Gera as páginas de álbum no build, em vez de gerar na hora que alguém acessa
-export function generateStaticParams() {
-  return albums.map((album) => ({ slug: album.slug }));
-}
-
-// Metadata dinâmica: cada álbum tem seu próprio título de SEO
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const album = getAlbumBySlug(slug);
+  const album = await getAlbumBySlug(slug);
 
   if (!album) return { title: "Álbum não encontrado" };
 
@@ -28,34 +25,34 @@ export async function generateMetadata({ params }) {
     openGraph: {
       title: album.title,
       description: album.description,
-      images: [album.coverUrl],
+      images: album.coverUrl ? [album.coverUrl] : [],
     },
   };
 }
 
 export default async function AlbumPage({ params }) {
   const { slug } = await params;
-  const album = getAlbumBySlug(slug);
+  const album = await getAlbumBySlug(slug);
 
-  if (!album) {
-    notFound();
-  }
+  if (!album) notFound();
 
-  const albumTracks = getTracksByAlbum(album.id);
+  const albumTracks = await getMusicasByAlbumId(album.id);
   const totalPlays = albumTracks.reduce((sum, t) => sum + t.plays, 0);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end">
         <div className="relative h-48 w-48 flex-shrink-0 overflow-hidden rounded-lg shadow-lg sm:h-56 sm:w-56">
-          <Image
-            src={album.coverUrl}
-            alt={album.title}
-            fill
-            priority
-            className="object-cover"
-            sizes="224px"
-          />
+          {album.coverUrl && (
+            <Image
+              src={album.coverUrl}
+              alt={album.title}
+              fill
+              priority
+              className="object-cover"
+              sizes="224px"
+            />
+          )}
         </div>
 
         <div>
@@ -73,9 +70,11 @@ export default async function AlbumPage({ params }) {
       </div>
 
       <div className="flex flex-col">
-        {albumTracks.map((track, i) => (
-          <TrackRow key={track.id} track={track} index={i + 1} />
-        ))}
+        {albumTracks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma música cadastrada neste álbum ainda.</p>
+        ) : (
+          albumTracks.map((track, i) => <TrackRow key={track.id} track={track} index={i + 1} />)
+        )}
       </div>
     </div>
   );

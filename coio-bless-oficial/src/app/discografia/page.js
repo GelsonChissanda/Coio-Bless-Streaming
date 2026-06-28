@@ -1,6 +1,9 @@
 import { AlbumCard } from "@/components/shared/album-card";
 import { TrackRow } from "@/components/shared/track-row";
-import { albums, getLooseTracks } from "@/lib/mock-data";
+import { getAllAlbuns } from "@/lib/queries/albuns";
+import { getMusicasSoltas } from "@/lib/queries/musicas";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Discografia",
@@ -29,11 +32,12 @@ function AlbumGrid({ items }) {
   );
 }
 
-export default function DiscografiaPage() {
+export default async function DiscografiaPage() {
+  const [albums, looseTracks] = await Promise.all([getAllAlbuns(), getMusicasSoltas()]);
+
   const fullAlbums = albums.filter((a) => a.type === "album");
   const eps = albums.filter((a) => a.type === "ep");
   const singles = albums.filter((a) => a.type === "single");
-  const looseTracks = getLooseTracks();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
